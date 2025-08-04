@@ -1,0 +1,29 @@
+{
+  "log_file_prefix": "wachtende_order",
+  "api_url": "http://fonky.telforce.nl/vicidial/non_agent_api.php",
+  "wo_folder_id": "1L_WTHrqdcEXS3iEy4_sjNOXtDUafbzBy",
+  
+  
+  "common_api_params":{
+    "source": "test"
+	},
+
+  "common_api_params" :{
+	"source": "google_cloud",
+	"function": "add_lead",
+	"phone_code": "31",
+	"dnc_check": "N",
+	"duplicate_check": "DUPLIST",
+	"custom_fields": "Y"
+},
+
+   "retentie_variants": [
+        "20408",
+	"20416"
+    ]
+ ,
+ 
+     "allowed_fields" : ["TUSSENVOEGSEL", "ACHTERNAAM", "VOORLETTERS", "PART_ZAK",
+                      "STRAAT", "HSNR", "HSNRT", "PCN", "PCA", "WPL",
+                      "phone_number", "ORDERNUMMER", "ORDERINFORMATIE", "RESPONSEDATUM", "AGENT_ID"]
+}
