@@ -24,11 +24,9 @@ import json
 import logging
 from google.cloud import secretmanager
 import io
-from collections import defaultdict
 from paramiko import Transport, SFTPClient, SFTPAttributes
 import re
 import requests
-import fnmatch
 import sys
 import traceback
 from google.cloud import logging as cloud_logging
@@ -436,4 +434,5 @@ if __name__ == '__main__':
     app.debug = True
     app.run(host='0.0.0.0', port=port)
         
+
 
