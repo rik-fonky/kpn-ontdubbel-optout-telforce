@@ -6,14 +6,6 @@ Created on Mon Aug  4 13:50:01 2025
 @author: rikcrijns
 """
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jul 10 11:36:38 2025
-
-@author: rikcrijns
-"""
-
 import math
 from typing import List
 import chardet
@@ -434,5 +426,6 @@ if __name__ == '__main__':
     app.debug = True
     app.run(host='0.0.0.0', port=port)
         
+
 
 
