@@ -21,7 +21,6 @@ import pandas as pd
 from mysql.connector import connect, MySQLConnection
 from datetime import datetime
 import json
-from tkinter import Tk, filedialog
 import logging
 from google.cloud import secretmanager
 import io
@@ -437,3 +436,4 @@ if __name__ == '__main__':
     app.debug = True
     app.run(host='0.0.0.0', port=port)
         
+
