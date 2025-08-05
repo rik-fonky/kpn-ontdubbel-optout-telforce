@@ -358,19 +358,9 @@ def main():
         logging.info("[%s] Vicidial query → %s rows",
                      export_type, f"{len(df_result):,}")
 
-        # ─────────────────────────────────────────────────────────
-        # 3. save query result
-        # ─────────────────────────────────────────────────────────
-        out_dir  = r"/Users/rikcrijns/Documents/Python Script/Ontdubbel"
-        out_file = (
-            f"{out_dir}/vicidial_query_result_ontdubbel_"
-            f"{export_type}_{timestamp}.csv"
-        )
-        df_result.to_csv(out_file, index=False)
-        logging.info("[%s] Saved result to %s", export_type, out_file)
 
         # ─────────────────────────────────────────────────────────
-        # 4. console report (still handy when running interactively)
+        # 3. console report (still handy when running interactively)
         # ─────────────────────────────────────────────────────────
         
         if not df_result.empty:
@@ -388,7 +378,7 @@ def main():
                           .value_counts()
                           .to_string())
             # ─────────────────────────────────────────────────────────
-            # 5. update lead status via API
+            # 4. update lead status via API
             # ─────────────────────────────────────────────────────────
             new_status = "ONTDUB" if export_type in ("NBB", "MA") else "DNCL"
             successes, failures = 0, 0
@@ -426,6 +416,7 @@ if __name__ == '__main__':
     app.debug = True
     app.run(host='0.0.0.0', port=port)
         
+
 
 
 
