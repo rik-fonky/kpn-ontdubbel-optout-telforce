@@ -11,4 +11,4 @@ google-cloud-logging
 oauth2client
 Flask
 chardet
-mysql.connector
+mysql-connector-python
