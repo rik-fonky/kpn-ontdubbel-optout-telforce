@@ -98,14 +98,16 @@ def update_status_lead(lead_id, status):
     return {'success': False, 'lead_id': lead_id, 'error': response.text}
 
 file_name_export_types = {
-    'T_61_Ontdubbelingen_100000': 'NBB',
+    'T_61_Ontdubbelingen_100000_%_000002': 'WINBACKEOCNBBSOLCON',  # ✓ Added underscore before %
+    'T_61_Ontdubbelingen_100000_%_000003': 'NBBRETENTIE',          # ✓ Added underscore before %
     'T_61_Ontdubbelingen_000000': 'MA',
     '_CHECK_OPTOUT_61': 'OPTOUT'
 }
 
+WINBACKEOCNBBSOLCON = [205,218,222]
+NBBRETENTIE = [211]
 MA = [204,215,217]
-NBB = [202,205,209,210,211,218]
-OPTOUT = [204,215,217,202,205,209,210,211,218]
+OPTOUT = [204,215,217,202,205,209,210,211,218,222]
 
 
 
@@ -235,10 +237,19 @@ def get_sftp_files() -> list[pd.DataFrame]:
     SFTP_PASSWORD = credentials_merkle_sftp["sftp_password"]
     SFTP_DIRECTORY = credentials_merkle_sftp["sftp_directory"]
 
-    regex_by_code = {
-        code: re.compile(fr"^XMP{re.escape(code)}.*\.txt$", re.I)
-        for code in file_name_export_types.keys()
-    }
+    # Modified regex construction:
+    regex_by_code = {}
+    for code in file_name_export_types.keys():
+        if '%' in code:
+            # Has date placeholder - match specific sequence number
+            pattern = code.replace('%', '<<<DATE>>>')
+            pattern = re.escape(pattern)
+            pattern = pattern.replace('<<<DATE>>>', r'\d{8}')
+            regex_by_code[code] = re.compile(fr"^XMP{pattern}\.txt$", re.I)
+        else:
+            # No placeholder - match anything after the code (original behavior)
+            regex_by_code[code] = re.compile(fr"^XMP{re.escape(code)}.*\.txt$", re.I)
+    
 
     df_list: list[pd.DataFrame] = []
     newest_attr: dict[str, SFTPAttributes] = {}
@@ -313,18 +324,16 @@ def main():
         logging.info("[%s] ── Processing %s", export_type, src_fname)
 
         # ─────────────────────────────────────────────────────────
-        # 1.  extract + clean phone numbers
+        # 1. extract + clean phone numbers
         # ─────────────────────────────────────────────────────────
-      # ─────────────────────────────────────────────────────────
-        # 1.  extract + clean phone numbers
-        # ─────────────────────────────────────────────────────────
-        if export_type in ("NBB", "MA"):
+        if export_type == "MA":
+            # MA uses multiple phone columns
             cols_to_use = []
             if "CONTACT_TELEFOONNUMMER_3" in df_file.columns:
                 cols_to_use.append(df_file["CONTACT_TELEFOONNUMMER_3"])
             if "CONTACT_TELEFOONNUMMER_1" in df_file.columns:
                 cols_to_use.append(df_file["CONTACT_TELEFOONNUMMER_1"])
-
+            
             if len(cols_to_use) > 1:
                 merged = pd.concat(cols_to_use, ignore_index=True)
             elif len(cols_to_use) == 1:
@@ -332,20 +341,30 @@ def main():
             else:
                 logging.warning("[%s] No telefoonnummer columns found – skipping", export_type)
                 continue
-        else:  # OPTOUT
+        
+        elif export_type == "OPTOUT":
+            # OPTOUT uses PHONE_NUMBER
             if "PHONE_NUMBER" in df_file.columns:
                 merged = df_file["PHONE_NUMBER"]
             else:
                 logging.warning("[%s] No PHONE_NUMBER column found – skipping", export_type)
                 continue
-
+        
+        else:
+            # WINBACKEOCNBBSOLCON and NBBRETENTIE use CONTACT_TELEFOONNUMMER
+            if "CONTACT_TELEFOONNUMMER" in df_file.columns:
+                merged = df_file["CONTACT_TELEFOONNUMMER"]
+            else:
+                logging.warning("[%s] No CONTACT_TELEFOONNUMMER column found – skipping", export_type)
+                continue
+        
         cleaned_numbers = (
             merged.map(strip_first_zero)
-                  .loc[lambda s: s.ne("")]
-                  .drop_duplicates()
-                  .tolist()
+                    .loc[lambda s: s.ne("")]
+                    .drop_duplicates()
+                    .tolist()
         )
-        
+                
         
         logging.info("[%s] Cleaned %s unique numbers",
                      export_type, f"{len(cleaned_numbers):,}")
@@ -353,10 +372,19 @@ def main():
         # ─────────────────────────────────────────────────────────
         # 2. query Vicidial
         # ─────────────────────────────────────────────────────────
-        list_ids = {"MA": MA, "OPTOUT": OPTOUT}.get(export_type, NBB)
+        list_ids_mapping = {
+            "MA": MA,
+            "OPTOUT": OPTOUT,
+            "WINBACKEOCNBBSOLCON": WINBACKEOCNBBSOLCON,
+            "NBBRETENTIE": NBBRETENTIE
+        }
+        
+        list_ids = list_ids_mapping.get(export_type)
+        if list_ids is None:
+            logging.warning("[%s] No list_ids defined for this export type – skipping", export_type)
+            continue
+        
         df_result = fetch_vicidial_batches(cleaned_numbers, list_ids)
-        logging.info("[%s] Vicidial query → %s rows",
-                     export_type, f"{len(df_result):,}")
 
 
         # ─────────────────────────────────────────────────────────
@@ -377,10 +405,10 @@ def main():
                           .fillna("(empty)")
                           .value_counts()
                           .to_string())
-            # ─────────────────────────────────────────────────────────
-            # 4. update lead status via API
-            # ─────────────────────────────────────────────────────────
-            new_status = "ONTDUB" if export_type in ("NBB", "MA") else "DNCL"
+        # ─────────────────────────────────────────────────────────
+        # 4. update lead status via API
+        # ─────────────────────────────────────────────────────────
+            new_status = "ONTDUB" if export_type in ("WINBACKEOCNBBSOLCON", "NBBRETENTIE", "MA") else "DNCL"
             successes, failures = 0, 0
             for lead_id in df_result["lead_id"]:
                 resp = update_status_lead(lead_id, new_status)
@@ -416,6 +444,7 @@ if __name__ == '__main__':
     app.debug = True
     app.run(host='0.0.0.0', port=port)
         
+
 
 
 
